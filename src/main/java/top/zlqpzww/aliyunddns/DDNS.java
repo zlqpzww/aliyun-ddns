@@ -110,7 +110,7 @@ public class DDNS {
 
     private static Config getDDNSConfig() throws  ConfigException {
         Properties properties = new Properties();
-        File configFile = new File(System.getProperty("user.dir"), "config.properties");
+        File configFile = new File(System.getProperty("user.dir"), "conf/config.properties");
         try (InputStream inputStream = Files.newInputStream(configFile.toPath())) {
             properties.load(inputStream);
             Config config = new Config();
