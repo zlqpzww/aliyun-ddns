@@ -108,22 +108,56 @@ public class DDNS {
         System.out.println(gson.toJson(result));
     }
 
-    private static String[] getAccessKeyAndAccessSecret() throws IOException {
+    private static Config getDDNSConfig() throws  ConfigException {
         Properties properties = new Properties();
         File configFile = new File(System.getProperty("user.dir"), "config.properties");
         try (InputStream inputStream = Files.newInputStream(configFile.toPath())) {
             properties.load(inputStream);
-            return new String[]{properties.getProperty("accessKey"), properties.getProperty("accessSecret")};
+            Config config = new Config();
+
+            String domainName = properties.getProperty(Const.KEY_DOMAIN_NAME);
+            if (domainName == null || domainName.trim().isEmpty()) {
+                throw new ConfigException("missing domainName configuration entry");
+            }
+            config.setDomainName(domainName);
+
+            String hostName = properties.getProperty(Const.KEY_HOST_NAME);
+            if (hostName == null || hostName.trim().isEmpty()) {
+                throw new ConfigException("missing hostName configuration entry");
+            }
+            config.setHostName(hostName);
+
+            String accessKey = properties.getProperty(Const.KEY_ACCESS_KEY);
+            if (accessKey == null || accessKey.trim().isEmpty()) {
+                throw new ConfigException("missing accessKey config entry");
+            }
+            config.setAccessKey(accessKey);
+
+            String accessSecret = properties.getProperty(Const.KEY_ACCESS_SECRET);
+            if (accessSecret == null || accessSecret.trim().isEmpty()) {
+                throw new ConfigException("missing accessSecret config entry");
+            }
+            config.setAccessSecret(accessSecret);
+
+            return config;
+        } catch (IOException e) {
+            throw new ConfigException("fail to read config file", e);
         }
     }
 
     public static void main(String[] args) throws IOException {
-        String[] accessKeyAndAccessSecret = getAccessKeyAndAccessSecret();
+        Config ddnsConfig;
+        try {
+            ddnsConfig = getDDNSConfig();
+        } catch (ConfigException e) {
+            e.printStackTrace();
+            return;
+        }
         // 设置鉴权参数，初始化客户端
         DefaultProfile profile = DefaultProfile.getProfile(
                 "cn-qingdao",// 地域ID
-                accessKeyAndAccessSecret[0],// 您的AccessKey ID
-                accessKeyAndAccessSecret[1]);// 您的AccessKey Secret
+                ddnsConfig.getAccessKey(),// 您的AccessKey ID
+                ddnsConfig.getAccessSecret());// 您的AccessKey Secret
         IAcsClient client = new DefaultAcsClient(profile);
 
         DDNS ddns = new DDNS();
@@ -131,9 +165,9 @@ public class DDNS {
         // 查询指定二级域名的最新解析记录
         DescribeDomainRecordsRequest describeDomainRecordsRequest = new DescribeDomainRecordsRequest();
         // 主域名
-        describeDomainRecordsRequest.setDomainName("zlqpzww.top");
+        describeDomainRecordsRequest.setDomainName(ddnsConfig.getDomainName());
         // 主机记录
-        describeDomainRecordsRequest.setRRKeyWord("rr");
+        describeDomainRecordsRequest.setRRKeyWord(ddnsConfig.getHostName());
         // 解析记录类型
         describeDomainRecordsRequest.setType("A");
         DescribeDomainRecordsResponse describeDomainRecordsResponse = ddns.describeDomainRecords(describeDomainRecordsRequest, client);
@@ -154,7 +188,7 @@ public class DDNS {
                 // 修改解析记录
                 UpdateDomainRecordRequest updateDomainRecordRequest = new UpdateDomainRecordRequest();
                 // 主机记录
-                updateDomainRecordRequest.setRR("rr");
+                updateDomainRecordRequest.setRR(ddnsConfig.getHostName());
                 // 记录ID
                 updateDomainRecordRequest.setRecordId(recordId);
                 // 将主机记录值改为当前主机IP
